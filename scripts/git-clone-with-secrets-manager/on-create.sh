@@ -25,8 +25,7 @@ AWS_SECRET_NAME="<secret-name>"
 AWS_SECRET_NAME_KEY="username"
 AWS_SECRET_PASS_KEY="password"
 REPOSITORY_URL="<repo-https-url>"
-FOLDER="<folder-name>"
-HOME="/home/ec2-user"
+FOLDER=`cut -d / -f 5 <<< "${REPOSITORY_URL/.git/}"`
 
 ## Script Body
 

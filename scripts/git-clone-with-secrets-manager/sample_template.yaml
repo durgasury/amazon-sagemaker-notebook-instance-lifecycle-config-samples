@@ -2,48 +2,60 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   AWS CloudFormation template to create a SageMaker notebook instance with a LifecycleConfiguration
   script that allows cloning a git repository
+Parameters:
+  GitRepoUrl:
+    Description: URL to clone
+    Type: String
+  FolderName:
+    Description: Name of the repository
+    Type: String
+  Username:
+    Description: Git username
+    Type: String
+  SecretName:
+    Description: AWS Secrets Manager secret name
+    Type: String
+  Email:
+    Description: Email to be associated with git config
+    Type: String
+  Region:
+    Description: AWS region
+    Type: String
+  SageMakerExecutionRole:
+    Description: Execution role for SageMaker notebook
+    Type: String
 Resources:
-  BasicNotebookInstance:
+  GitCloneNotebook:
     Type: "AWS::SageMaker::NotebookInstance"
     Properties:
-      InstanceType: "ml.t2.medium"
-      RoleArn: !GetAtt ExecutionRole.Arn
-      LifecycleConfigName: !GetAtt BasicNotebookInstanceLifecycleConfig.NotebookInstanceLifecycleConfigName
-  BasicNotebookInstanceLifecycleConfig:
+      InstanceType: "ml.t3.medium"
+      RoleArn: !Ref SageMakerExecutionRole
+      LifecycleConfigName: !GetAtt GitCloneLCC.NotebookInstanceLifecycleConfigName
+  GitCloneLCC:
     Type: "AWS::SageMaker::NotebookInstanceLifecycleConfig"
     Properties:
       OnStart:
         - Content:
-            Fn::Base64: |
-                # Automatically clones a github repository given credentials in secrets manager
-                # Installs a git helper function which retrieves the password or developer token from Secrets Manager 
-                # directly for cloning a repository from a private git repo or pushing back changes upstream. 
-                # Storing passwords and tokens in Secrets Manager eliminates the need to store any sensitive information on EFS.
-
-                # Steps:
-                # 1. Add your password or personal developer token to Secret Manager
-                # 2. Set the secret name and key in the script below, along with the repository url
-
+            Fn::Base64: 
+              !Sub |
                 #!/bin/bash
 
-                set -eux
-
-                ## Parameters 
-                # your git provider, e.g. github.com
-                GIT_PROVIDER="github.com"
-                GIT_USERNAME="<username>"
-                GIT_EMAIL="<email>"
-                AWS_REGION="us-east-1"
+                set -e
+                
+                # parameters
+                GIT_PROVIDER='github.com'
+                GIT_USERNAME=${Username}
+                GIT_EMAIL=${Email}
+                AWS_REGION=${Region}
                 # Secret name stored in AWS Secrets Manager
-                AWS_SECRET_NAME="<secret-name>"
+                AWS_SECRET_NAME=${SecretName}
                 # Secret key names inside the secret
                 # Secret is stored with two key-value pairs, keys username and password
                 # Replace these values if your secrets are stored as different keys
                 AWS_SECRET_NAME_KEY="username"
                 AWS_SECRET_PASS_KEY="password"
-                REPOSITORY_URL="<repo-https-url>"
-                FOLDER="<folder-name>"
-                HOME="/home/ec2-user"
+                REPOSITORY_URL=${GitRepoUrl}
+                FOLDER=${FolderName}
 
                 ## Script Body
 
@@ -54,7 +66,7 @@ Resources:
                 import json
                 import boto3
                 import botocore
-                # GIT_PROVIDER='$GIT_PROVIDER'
+                GIT_PROVIDER='$GIT_PROVIDER'
                 GIT_USERNAME='$GIT_USERNAME'
                 AWS_REGION='$AWS_REGION'
                 AWS_SECRET_NAME='$AWS_SECRET_NAME'
@@ -82,13 +94,10 @@ Resources:
                 chmod +x ~/.aws-credential-helper.py
 
                 sudo -u ec2-user -i <<EOF
-
                 git config --global credential.helper ~/.aws-credential-helper.py
                 git config --global user.name "$GIT_USERNAME"
                 git config --global user.email "$GIT_EMAIL"
-
                 EOF
-
                 # check if folder exists and clone
                 if [ ! -d "/home/ec2-user/SageMaker/$FOLDER" ] ; then
                     git -C /home/ec2-user/SageMaker clone $REPOSITORY_URL
@@ -97,32 +106,8 @@ Resources:
                 #     cd "$FOLDER"
                 #     git pull $REPOSITORY_URL
                 fi
-  ExecutionRole: 
-    Type: "AWS::IAM::Role"
-    Properties: 
-      AssumeRolePolicyDocument: 
-        Version: "2012-10-17"
-        Statement: 
-          - 
-            Effect: "Allow"
-            Principal: 
-              Service: 
-                - "sagemaker.amazonaws.com"
-            Action: 
-              - "sts:AssumeRole"
-      Path: "/"
-      Policies: 
-        - 
-          PolicyName: "root"
-          PolicyDocument: 
-            Version: "2012-10-17"
-            Statement: 
-              - 
-                Effect: "Allow"
-                Action: "*"
-                Resource: "*"
 Outputs:
-  BasicNotebookInstanceId:
-    Value: !Ref BasicNotebookInstance
-  BasicNotebookInstanceLifecycleConfigId:
-    Value: !Ref BasicNotebookInstanceLifecycleConfig
+  GitCloneNotebookId:
+    Value: !Ref GitCloneNotebook
+  GitCloneLCCId:
+    Value: !Ref GitCloneLCC
