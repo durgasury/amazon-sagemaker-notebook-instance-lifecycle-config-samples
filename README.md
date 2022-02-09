@@ -33,6 +33,7 @@ Lifecycle Configurations provide a mechanism to customize Notebook Instances via
 * [set-codecommit-cross-account-access](scripts/set-codecommit-cross-account-access) - This script sets cross-account CodeCommit access, so you can work on repositories hosted in another account.
 * [set-env-variable](scripts/set-env-variable) - This script gets a value from the Notebook Instance's tags and sets it as an environment variable for all processes including Jupyter.
 * [set-git-config](scripts/set-git-config) - This script sets the username and email address in Git config.
+* [git-clone-with-secrets-manager](scripts/git-clone-with-secrets-manager) - This script gets username and password (token) from AWS Secrets Manager, and sets the values automatically in the credential helper, and clones a given repository on notebook creation.
 
 ### Development
 
